@@ -275,7 +275,7 @@ public:
   }
 
   SensorData* getData(uint8_t protocol, int channel, uint8_t rolling_code = -1) {
-    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_00592TXR|PROTOCOL_HG02832|PROTOCOL_TX7U)) == 0) return __null;
+    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_F007TP|PROTOCOL_00592TXR|PROTOCOL_HG02832|PROTOCOL_TX7U)) == 0) return __null;
     if (protocol!=PROTOCOL_TX7U && (channel < 1 || channel > 8)) return __null;
     if (rolling_code > 255 || (rolling_code < 0 && rolling_code != -1)) return __null;
 
@@ -290,7 +290,8 @@ public:
       }
       for (int index = size-1; index>=0; index--) {
         SensorData* p = &items[index];
-        if ((p->nF007TH & mask) == uid) return p;
+        if ((protocol == PROTOCOL_F007TH) && ((p->nF007TH & mask) == uid)) return p;
+        if ((protocol == PROTOCOL_F007TP) && ((p->nF007TP & mask) == uid)) return p;
       }
     } else if (protocol == PROTOCOL_00592TXR) {
       for (int index = 0; index<size; index++) {
@@ -338,6 +339,28 @@ public:
       }
       add(sensorData, data_time);
       return TEMPERATURE_IS_CHANGED | HUMIDITY_IS_CHANGED | BATTERY_STATUS_IS_CHANGED | NEW_UID;
+    }
+
+    if (sensorData->protocol == PROTOCOL_F007TP) {
+      uint32_t nF007TP = sensorData->nF007TP;
+      uint32_t uid = nF007TP & SENSOR_UID_MASK;
+      for (int index = 0; index<size; index++) {
+        SensorData* p = &items[index];
+        if (p->protocol != PROTOCOL_F007TP) continue;
+        uint32_t item = p->nF007TP;
+        if ((item & SENSOR_UID_MASK) == uid) {
+          uint32_t changed = (item ^ nF007TP)& SENSOR_DATA_MASK;
+          if (changed == 0) return 0;
+          p->u64 = sensorData->u64;
+          int result = 0;
+          if ((changed&SENSOR_TEMPERATURE_MASK) != 0) result |= TEMPERATURE_IS_CHANGED;
+          if ((changed&BATTERY_STATUS_IS_CHANGED) != 0) result |= BATTERY_STATUS_IS_CHANGED;
+          p->data_time = data_time;
+          return result;
+        }
+      }
+      add(sensorData, data_time);
+      return TEMPERATURE_IS_CHANGED | BATTERY_STATUS_IS_CHANGED | NEW_UID;
     }
 
     if (sensorData->protocol == PROTOCOL_00592TXR) {
