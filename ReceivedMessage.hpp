@@ -330,6 +330,8 @@ public:
         fputs(",\"type\":\"AcuRite 00592TXR\"", file);
       } else if (data->sensorData.protocol == PROTOCOL_F007TH) {
         fputs(",\"type\":\"Ambient Weather F007TH\"", file);
+      } else if (data->sensorData.protocol == PROTOCOL_F007TP) {
+        fputs(",\"type\":\"Ambient Weather F007TP\"", file);
       } else if (data->sensorData.protocol == PROTOCOL_TX7U) {
         fputs(",\"type\":\"LaCrosse TX3/TX6/TX7\"", file);
       } else if (data->sensorData.protocol == PROTOCOL_HG02832) {
@@ -384,6 +386,7 @@ public:
       dt,
       data->sensorData.protocol == PROTOCOL_00592TXR ? "AcuRite 00592TXR" :
       data->sensorData.protocol == PROTOCOL_F007TH ? "Ambient Weather F007TH" :
+      data->sensorData.protocol == PROTOCOL_F007TP ? "Ambient Weather F007TP" :
       data->sensorData.protocol == PROTOCOL_HG02832 ? "Auriol HG02832 (IAN 283582)" :
       data->sensorData.protocol == PROTOCOL_TX7U ? "LaCrosse TX3/TX6/TX7" : "unknown",
       decodingStatus == 0 ? "true" : "false"

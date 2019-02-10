@@ -175,6 +175,7 @@ public:
 
   const char* getSensorTypeName() {
     if (protocol == PROTOCOL_F007TH) return "F007TH";
+    if (protocol == PROTOCOL_F007TP) return "F007TP";
     if (protocol == PROTOCOL_00592TXR) return "00592TXR";
     if (protocol == PROTOCOL_TX7U) return "TX7";
     if (protocol == PROTOCOL_HG02832) return "HG02832";
