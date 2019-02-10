@@ -12,13 +12,15 @@
 #define PROTOCOL_00592TXR  2
 #define PROTOCOL_TX7U      4
 #define PROTOCOL_HG02832   8
+#define PROTOCOL_F007TP    16
 #define PROTOCOL_ALL       (unsigned)(-1)
 
 #define PROTOCOL_INDEX_F007TH    0
 #define PROTOCOL_INDEX_00592TXR  1
 #define PROTOCOL_INDEX_TX7U      2
 #define PROTOCOL_INDEX_HG02832   3
-#define NUMBER_OF_PROTOCOLS      4
+#define PROTOCOL_INDEX_F007TP    4
+#define NUMBER_OF_PROTOCOLS      5
 
 #define VERBOSITY_DEBUG            1
 #define VERBOSITY_INFO             2
@@ -53,6 +55,7 @@ typedef struct SensorData {
   union {
     uint64_t u64;
     uint32_t nF007TH; // F007TH data - 4 bytes
+    uint32_t nF007TP; // F007TP data - 4 bytes
     struct {
       uint32_t low, hi;
     } u32;
@@ -71,12 +74,14 @@ typedef struct SensorData {
 public:
   int getChannel() {
     if (protocol == PROTOCOL_F007TH) return ((nF007TH>>20)&7)+1;
+    if (protocol == PROTOCOL_F007TP) return ((nF007TP>>20)&7)+1;
     if (protocol == PROTOCOL_00592TXR) return ((fields.channel>>6)&3)^3;
     if (protocol == PROTOCOL_HG02832) return ((u32.low>>12)&3)+1;
     return -1;
   }
   int getChannelNumber() {
       if (protocol == PROTOCOL_F007TH) return ((nF007TH>>20)&7)+1;
+      if (protocol == PROTOCOL_F007TP) return ((nF007TP>>20)&7)+1;
       if (protocol == PROTOCOL_00592TXR) {
         switch ((fields.channel>>6)&3) {
         case 3: return 1;
@@ -88,12 +93,13 @@ public:
     return -1;
   }
   bool hasBatteryStatus() {
-    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_00592TXR|PROTOCOL_HG02832)) != 0) return true;
+    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_F007TP|PROTOCOL_00592TXR|PROTOCOL_HG02832)) != 0) return true;
     return false;
   }
   // true => OK
   bool getBatteryStatus() {
     if (protocol == PROTOCOL_F007TH) return (nF007TH&0x00800000) == 0;
+    if (protocol == PROTOCOL_F007TP) return (nF007TP&0x00800000) == 0;
     if (protocol == PROTOCOL_00592TXR) return fields.status==0x44;
     if (protocol == PROTOCOL_HG02832) return (u32.low&0x00008000) == 0;
     return false;
@@ -101,7 +107,7 @@ public:
 
 
   bool hasTemperature() {
-    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_00592TXR|PROTOCOL_HG02832)) != 0) return true;
+    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_F007TP|PROTOCOL_00592TXR|PROTOCOL_HG02832)) != 0) return true;
     if (protocol == PROTOCOL_TX7U) return (u32.hi&15)==0 || (u32.hi&0x00800000)!=0;
     return false;
   }
@@ -111,6 +117,9 @@ public:
   int getTemperatureCx10() {
     if (protocol == PROTOCOL_F007TH)
       return (int)(((nF007TH>>8)&4095)-720) * 5 / 9;
+
+    if (protocol == PROTOCOL_F007TP)
+      return (int)(((nF007TP>>8)&4095)-720) * 5 / 9;
 
     if (protocol == PROTOCOL_00592TXR)
       return (int)((((fields.t_hi)&127)<<7) | (fields.t_low&127)) - 1000;
@@ -132,6 +141,9 @@ public:
   int getTemperatureFx10() {
     if (protocol == PROTOCOL_F007TH)
       return (int)((nF007TH>>8)&4095)-400;
+
+    if (protocol == PROTOCOL_F007TP)
+      return (int)((nF007TP>>8)&4095)-400;
 
     if (protocol == PROTOCOL_00592TXR) {
       int c = (int)((((fields.t_hi)&127)<<7) | (fields.t_low&127)) - 1000;
@@ -172,6 +184,7 @@ public:
   // random number that is changed when battery is changed
   uint8_t getRollingCode() {
     if (protocol == PROTOCOL_F007TH) return (nF007TH >> 24) & 255;
+    if (protocol == PROTOCOL_F007TP) return (nF007TP >> 24) & 255;
     if (protocol == PROTOCOL_00592TXR) return fields.rolling_code;
     if (protocol == PROTOCOL_TX7U) return (u32.low >> 25);
     if (protocol == PROTOCOL_HG02832) return (u32.low >> 24);
@@ -265,7 +278,7 @@ public:
     if (protocol!=PROTOCOL_TX7U && (channel < 1 || channel > 8)) return __null;
     if (rolling_code > 255 || (rolling_code < 0 && rolling_code != -1)) return __null;
 
-    if (protocol == PROTOCOL_F007TH) {
+    if ((protocol&(PROTOCOL_F007TH|PROTOCOL_F007TP))) {
       uint32_t mask;
       uint32_t uid = ((uint32_t)channel-1L) << 20;
       if (rolling_code == -1) {

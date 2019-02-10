@@ -11,7 +11,7 @@ RFReceiver* RFReceiver::first = NULL;
 
 RFReceiver::RFReceiver(int gpio) {
   this->gpio = gpio;
-  protocols = PROTOCOL_F007TH|PROTOCOL_00592TXR|PROTOCOL_TX7U|PROTOCOL_HG02832;
+  protocols = PROTOCOL_F007TH|PROTOCOL_F007TP|PROTOCOL_00592TXR|PROTOCOL_TX7U|PROTOCOL_HG02832;
   isEnabled = false;
   isDecoderStarted = false;
   stopDecoder = false;
@@ -218,7 +218,7 @@ bool RFReceiver::enableReceive() {
         if ( min_duration==0 || min_duration>MIN_DURATION_00592TXR ) min_duration = MIN_DURATION_00592TXR;
         if ( max_duration==0 || max_duration<MAX_DURATION_00592TXR ) max_duration = MAX_DURATION_00592TXR;
       }
-      if ((protocols & PROTOCOL_F007TH) != 0) {
+      if ((protocols & (PROTOCOL_F007TH|PROTOCOL_F007TP)) != 0) {
         if ( min_duration==0 || min_duration>MIN_DURATION_F007TH ) min_duration = MIN_DURATION_F007TH;
         if ( max_duration==0 || max_duration<MAX_DURATION_F007TH ) max_duration = MAX_DURATION_F007TH;
       }
@@ -823,6 +823,12 @@ void RFReceiver::decoder() {
       message->detailedDecodingStatus[PROTOCOL_INDEX_F007TH] = message->decodingStatus;
       message->detailedDecodedBits[PROTOCOL_INDEX_F007TH] = message->decodedBits;
     }
+    if (!decoded && (protocols&PROTOCOL_F007TP) != 0) {
+      uint32_t nF007TP = 0;
+      decoded = decodeF007TP(message, nF007TP);
+      message->detailedDecodingStatus[PROTOCOL_INDEX_F007TP] = message->decodingStatus;
+      message->detailedDecodedBits[PROTOCOL_INDEX_F007TP] = message->decodedBits;
+    }
 
     // TODO do not queue the message if it is not decoded and no need to print undecoded messages.
 
@@ -963,7 +969,7 @@ bool RFReceiver::decodeF007TH(ReceivedData* message, uint32_t& nF007TH) {
 
   int index = bits.findBits( 0x0000fd45, 16 ); // 1111 1101 0100 0101 shortened preamble + fixed ID (0x45)
   if (index<0) {
-    index = bits.findBits( 0x0000fd46, 16 ); // F007TP fixed ID = 0x46
+    //index = bits.findBits( 0x0000fd46, 16 ); // F007TP fixed ID = 0x46
     if (index<0) {
       message->decodingStatus |= 16; // could not find preamble
       return false;
@@ -1022,6 +1028,92 @@ bool RFReceiver::decodeF007TH(ReceivedData* message, uint32_t& nF007TH) {
   message->sensorData.nF007TH = data;
   message->sensorData.protocol = PROTOCOL_F007TH;
   nF007TH = data;
+  return true;
+}
+#pragma GCC diagnostic pop
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-overflow"
+bool RFReceiver::decodeF007TP(ReceivedData* message, uint32_t& nF007TP) {
+  if (message->sensorData.protocol != 0) {
+    if (message->sensorData.protocol == PROTOCOL_F007TP) {
+      nF007TP = message->sensorData.nF007TP;
+      return true;
+    }
+    return false;
+  }
+  nF007TP = 0;
+
+  Bits bits(message->iSequenceSize+1);
+
+  if (!decodeManchester(message, bits)) {
+    message->decodingStatus |= 4;
+    return false;
+  }
+  int size = bits.getSize();
+  message->decodedBits = (uint16_t)size;
+  if (size < 56) {
+    message->decodingStatus |= 8;
+    return false;
+  }
+
+  int index = bits.findBits( 0x0000fd46, 16 ); // 1111 1101 0100 0101 shortened preamble + fixed ID (0x45)
+  if (index<0) {
+    message->decodingStatus |= 16; // could not find preamble
+    return false;
+  }
+
+  int dataIndex; // index of the first bit of data after preamble and fixed ID (0x45)
+
+  if (index+56<size) {
+    dataIndex = index+16;
+  } else if (index>49 && bits.getInt(index-9, 9) == 0x1f) {
+    // a valid data from previous message before preamble(11 bits) and 4 bits 0000
+    dataIndex = index-49;
+  } else if (index+48<size) {
+    // hash code is missing but it is better than nothing
+    dataIndex = index+16;
+  } else {
+    message->decodingStatus |= 32; // not enough data
+    return false;
+  }
+
+  if (dataIndex+40>size) {
+    message->decodingStatus |= 64; // hash code is missing - cannot check it
+  } else {
+    // Checking of hash for Ambient Weather F007TH.
+    // See https://eclecticmusingsofachaoticmind.wordpress.com/2015/01/21/home-automation-temperature-sensors/
+
+    int bit;
+    bool good = false;
+    int checking_data = dataIndex-8;
+    do {
+      int mask = 0x7C;
+      int calculated_hash = 0x64;
+      for (int i = checking_data; i < checking_data+40; ++i) {
+        bit = mask & 1;
+        mask = (((mask&0xff) >> 1 ) | (mask << 7)) & 0xff;
+        if ( bit ) mask ^= 0x18;
+        if ( bits.getBit(i) ) calculated_hash ^= mask;
+      }
+      int expected_hash = bits.getInt(checking_data+40, 8);
+      if (((expected_hash^calculated_hash) & 255) == 0) {
+        good = true;
+        dataIndex = checking_data+8;
+        break;
+      }
+      // Bad hash. But message is repeated up to 3 times. Try the next message.
+      checking_data += 65;
+    } while(checking_data+48 < size && bits.getInt(checking_data-17, 25) == 0x1ffd46);
+    if (!good) {
+      message->decodingStatus |= 128; // failed hash code check
+    }
+  }
+
+  uint32_t data = bits.getInt(dataIndex, 32);
+  message->sensorData.nF007TP = data;
+  message->sensorData.protocol = PROTOCOL_F007TP;
+  nF007TP = data;
   return true;
 }
 #pragma GCC diagnostic pop
@@ -1552,4 +1644,3 @@ void RFReceiver::printDebugStatistics() {
       interrupted, sequences, skipped, dropped, corrected, sequence_pool_overflow);
 #endif
 }
-

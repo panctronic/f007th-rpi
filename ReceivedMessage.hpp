@@ -126,6 +126,13 @@ public:
   int getChannelF007TH() {
     return data == __null ? -1 : ((data->sensorData.nF007TH>>20)&7)+1;
   }
+  // Channel number 1..8
+  static int getChannelF007TP(uint32_t nF007TP) {
+    return ((nF007TP>>20)&7)+1;
+  }
+  int getChannelF007TP() {
+    return data == __null ? -1 : ((data->sensorData.nF007TP>>20)&7)+1;
+  }
   char getChannel00592TXR() {
     if (data != __null && data->sensorData.protocol == PROTOCOL_00592TXR) {
       switch ((data->sensorData.fields.channel>>6)&3) {
@@ -217,6 +224,8 @@ public:
       if (print_details) {
         if (data->sensorData.protocol == PROTOCOL_F007TH)
           fprintf(file, "  F007TH data       = %08x\n", data->sensorData.nF007TH);
+        if (data->sensorData.protocol == PROTOCOL_F007TP)
+          fprintf(file, "  F007TP data       = %08x\n", data->sensorData.nF007TP);
         else if (data->sensorData.protocol == PROTOCOL_00592TXR)
           fprintf(file, "  00592TXR data     = %02x %02x %02x %02x %02x %02x %02x\n",
               data->sensorData.fields.channel, data->sensorData.fields.rolling_code, data->sensorData.fields.status, data->sensorData.fields.rh,
@@ -243,7 +252,8 @@ public:
 
       } else if (data->sensorData.protocol == PROTOCOL_F007TH) {
         fprintf(file, "  type              = Ambient Weather F007TH\n  channel           = %d\n", getChannelF007TH());
-
+      } else if (data->sensorData.protocol == PROTOCOL_F007TP) {
+        fprintf(file, "  type              = Ambient Weather F007TP\n  channel           = %d\n", getChannelF007TP());
       } else if (data->sensorData.protocol == PROTOCOL_TX7U) {
         fprintf(file, "  type              = LaCrosse TX3/TX6/TX7(%s)\n", hasTemperature()?"temperature":hasHumidity()?"humidity":"unknown");
 

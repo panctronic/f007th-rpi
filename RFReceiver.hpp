@@ -129,6 +129,7 @@ public:
   void printDebugStatistics();
 
   bool decodeF007TH(ReceivedData* message, uint32_t& nF007TH);
+  bool decodeF007TP(ReceivedData* message, uint32_t& nF007TP);
   bool decode00592TXR(ReceivedData* message);
   bool decodeTX7U(ReceivedData* message);
   bool decodeHG02832(ReceivedData* message);
