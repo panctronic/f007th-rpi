@@ -11,7 +11,8 @@ The main goal of this project is to intercept and decode radio signals from temp
 The data is received with cheap RF 433.92MHz receivers like [RXB6](http://www.jmrth.com/en/images/proimages/RXB6_en_v3.pdf), [SeeedStudio RF-R-ASK](https://www.seeedstudio.com/433MHz-ASK%26amp%3BOOK-Super-heterodyne-Receiver-module-p-2205.html), RX-RM-5V, etc. It is tested with RXB6 and SeeedStudio RF-R-ASK.
 
 This project currently supports and tested with following sensors:    
-- [Ambient Weather F007TH](http://www.ambientweather.com/amf007th.html)   
+- [Ambient Weather F007TH](http://www.ambientweather.com/amf007th.html)
+- [Ambient Weather F007TP](http://www.ambientweather.com/amf007tp.html)
 - [AcuRite 00592TXR/06002RM](https://www.acurite.com/kbase/592TXR.html)  
 - [LaCrosse TX7U](https://www.lacrossetechnology.com/tx7u) (probably TX3/TX6 may also work)  
 - [Auriol HG02832 (IAN 283582)](https://manuall.co.uk/auriol-ian-283582-weather-station/)    
